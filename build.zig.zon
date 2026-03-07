@@ -40,9 +40,9 @@
             .url = "git+https://github.com/KhronosGroup/Vulkan-Headers#ad9ce1235e88dc09287e19171dfac384db8ec32c",
             .hash = "N-V-__8AALnKOwISs8TmtQCFcJgDTE9kRnMhQCrbaafF5DD0",
         },
-        .sdl3 = .{
-            .url = "git+https://codeberg.org/7Games/zig-sdl3?ref=master#971884ffea3c47d1ced6706dd772df65f3441999",
-            .hash = "sdl3-0.1.7-NmT1Q8IJJwBzR90s32YBv6pAk3YnNvi7B5MOHeh4c8QB",
+        .sdl = .{
+            .url = "git+https://github.com/castholm/SDL.git#887fa805e40d5c7bb3955ae69b89ed566c6a0471",
+            .hash = "sdl-0.4.0+3.4.0-SDL--rq2owEZsySGuHCuVJ9naEvH3i3e_pyUIjziBtJ-",
         },
     },
     .paths = .{

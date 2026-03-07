@@ -1,18 +1,46 @@
 //! By convention, root.zig is the root source file when making a package.
 const std = @import("std");
-const Io = std.Io;
+const print = std.debug.print;
 
-/// This is a documentation comment to explain the `printAnotherMessage` function below.
-///
-/// Accepting an `Io.Writer` instance is a handy way to write reusable code.
-pub fn printAnotherMessage(writer: *Io.Writer) Io.Writer.Error!void {
-    try writer.print("Run `zig build test` to run the tests.\n", .{});
-}
+const sdl = @import("sdl/sdl.zig");
+const c = sdl.c;
+const vke = @import("vulkan/vkengine.zig");
 
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
+pub fn createVulkan() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
 
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
+    var sdlWrapper = try sdl.SdlWrapper.init();
+    defer sdlWrapper.destroy();
+
+    try sdlWrapper.createWindow();
+
+    var builder = vke.EngineBuilder.init(
+        gpa.allocator(),
+        try sdl.getVulkanLoader(),
+        try sdl.getVulkanExtensions());
+
+    var vkEngine = try builder
+        .withEnableValidation()
+        .build();
+
+    defer vkEngine.destroy();
+
+    var shouldQuit = false;
+    while (!shouldQuit) {
+        var eventPolled = sdl.pollNextEvent();
+        while (eventPolled) |event| : (eventPolled = sdl.pollNextEvent()) {
+            switch (event.type) {
+                c.SDL_EVENT_QUIT => shouldQuit = true,
+                c.SDL_EVENT_KEY_DOWN => {
+                    switch (event.key.key) {
+                        c.SDLK_ESCAPE => shouldQuit = true,
+                        else => {}
+                    }
+                },
+                else => {}
+            }
+        }
+        
+    }
 }
