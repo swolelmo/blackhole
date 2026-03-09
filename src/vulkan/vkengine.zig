@@ -11,15 +11,15 @@ pub const EngineBuilder = struct {
     allocator: std.mem.Allocator,
     appName: ?[*:0]u8,
     appVersion: u32 = vk.makeApiVersion(0, 0, 1, 0).toU32(),
-    procAddress: vk.PfnGetInstanceProcAddr,
-    extensions: [*c]const [*c]const u8,
+    procAddress: ?vk.PfnGetInstanceProcAddr,
+    extensions: []const [*c]const u8,
     enableValidation: bool,
 
     pub fn init(
         allocator: std.mem.Allocator,
         procAddress: ?vk.PfnGetInstanceProcAddr,
-        extensions: [*c]const [*c]const u8)
-    !EngineBuilder {
+        extensions: []const [*c]const u8)
+    EngineBuilder {
         var builder: EngineBuilder = undefined;
         builder.allocator = allocator;
         builder.procAddress = procAddress;
@@ -49,20 +49,16 @@ pub const EngineBuilder = struct {
         const availableLayers = try baseWrapper.enumerateInstanceLayerPropertiesAlloc(self.allocator);
         defer self.allocator.free(availableLayers);
 
-        var requiredLayers: std.ArrayList([]const u8) = .empty;
-        defer { 
-            for (requiredLayers.items) |layer| {
-                self.allocator.free(layer);
-            }
-        }
-        defer requiredLayers.deinit(self.allocator);
+        var requiredLayers: [10][:0]const u8 = undefined;
+        var layerCount: u8 = 0;
 
+        const valLayerName = "VK_LAYER_KHRONOS_validation";
         if (self.enableValidation) {
-            const valLayerName = "VK_LAYER_KHRONOS_validation";
-            try requiredLayers.append(self.allocator, try self.allocator.dupe(u8, valLayerName));
+            requiredLayers[layerCount] = valLayerName;
+            layerCount += 1;
         }
 
-        for (requiredLayers.items) |requiredLayer| {
+        for (requiredLayers[0..layerCount]) |requiredLayer| {
             for (availableLayers) |layer| {
                 if (std.mem.eql(u8, requiredLayer, std.mem.sliceTo(&layer.layer_name, 0))) {
                     break;
@@ -72,7 +68,7 @@ pub const EngineBuilder = struct {
             }
         }
 
-        var requiredExtensions: std.ArrayList([*c]const u8) = .empty;
+        var requiredExtensions: std.ArrayList([*:0]const u8) = .empty;
         defer requiredExtensions.deinit(self.allocator);
         if (self.enableValidation) {
             try requiredExtensions.append(self.allocator, vk.extensions.ext_debug_utils.name);
@@ -80,7 +76,9 @@ pub const EngineBuilder = struct {
         try requiredExtensions.append(self.allocator, vk.extensions.khr_portability_enumeration.name);
         try requiredExtensions.append(self.allocator, vk.extensions.khr_get_physical_device_properties_2.name);
 
-        try requiredExtensions.appendSlice(self.allocator, @ptrCast(self.extensions));
+        for (self.extensions) |extension| {
+            try requiredExtensions.append(self.allocator, extension);
+        }
 
         const appInfo: vk.ApplicationInfo = .{
             .p_application_name = self.appName,
@@ -93,8 +91,8 @@ pub const EngineBuilder = struct {
         const instance = try baseWrapper.createInstance(
             &.{
                 .p_application_info = &appInfo,
-                .enabled_layer_count = @intCast(requiredLayers.items.len),
-                .pp_enabled_layer_names = requiredLayers.items.ptr,
+                .enabled_layer_count = layerCount,
+                .pp_enabled_layer_names = @ptrCast(requiredLayers[0..layerCount]),
                 .enabled_extension_count = @intCast(requiredExtensions.items.len),
                 .pp_enabled_extension_names = requiredExtensions.items.ptr,
                 .flags = .{ .enumerate_portability_bit_khr = true },
@@ -102,7 +100,7 @@ pub const EngineBuilder = struct {
             null);
 
         const instanceWrapper = vk.InstanceWrapper.load(instance, baseWrapper.dispatch.vkGetInstanceProcAddr.?);
-        const instanceProxy = vk.Instance.init(instance, instanceWrapper);
+        const instanceProxy = vk.InstanceProxy.init(instance, &instanceWrapper);
         errdefer instanceProxy.destroyInstance(null);
 
         var debugMessenger: ?vk.DebugUtilsMessengerEXT = null;

@@ -50,7 +50,13 @@ pub fn getVulkanLoader() !c.SDL_FunctionPointer {
     return try e.errorConvert(c.SDL_Vulkan_GetVkGetInstanceProcAddr());
 }
 
-pub fn getVulkanExtensions() ![*c]const [*c]const u8{
+pub fn getVulkanExtensions() ![] [*:0]const u8{
+    var buf: [20][*:0]const u8 = undefined;
     var count: u32 = 0;
-    return try e.errorConvert(c.SDL_Vulkan_GetInstanceExtensions(&count));
+    const cArray = try e.errorConvert(c.SDL_Vulkan_GetInstanceExtensions(&count));
+    for (0..count) |i| {
+        buf[i] = cArray[i];
+    }
+
+    return buf[0..count];
 }

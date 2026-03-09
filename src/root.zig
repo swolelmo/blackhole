@@ -17,12 +17,12 @@ pub fn createVulkan() !void {
 
     var builder = vke.EngineBuilder.init(
         gpa.allocator(),
-        try sdl.getVulkanLoader(),
+        @ptrCast(try sdl.getVulkanLoader()),
         try sdl.getVulkanExtensions());
 
-    var vkEngine = try builder
-        .withEnableValidation()
-        .build();
+    _ = builder.withEnableValidation();
+
+    var vkEngine = try builder.build();
 
     defer vkEngine.destroy();
 
