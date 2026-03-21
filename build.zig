@@ -21,11 +21,10 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    const vulkan = b.dependency("vulkan", .{
-        .registry = b.dependency("vulkan_headers", .{}).path("registry/vk.xml"),
-    }).module("vulkan-zig");
-
-    mod.addImport("vulkan", vulkan);
+    const vk_lib_name = if (target.result.os.tag == .windows) "vulkan-1" else "vulkan";
+    mod.linkSystemLibrary(vk_lib_name, .{ .needed = true });
+    
+    addVulkanHeaders(b, mod);
 
     const sdl_dep = b.dependency("sdl", .{
         .target = target,
@@ -62,4 +61,20 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+}
+
+fn addVulkanHeaders(b: *std.Build, mod: *std.Build.Module) void {
+    const vk_sdk_path =
+        b.graph.environ_map.get("VK_SDK_PATH") orelse
+        b.graph.environ_map.get("VULKAN_SDK") orelse
+        std.debug.panic("Error getting VK_SDK_PATH or VULKAN_SDK environment variable", .{});
+
+    const lib_path = std.fmt.allocPrint(b.allocator, "{s}/lib", .{ vk_sdk_path }) catch @panic("OOM");
+    defer b.allocator.free(lib_path);
+
+    const include_path = std.fmt.allocPrint(b.allocator, "{s}/Include/", .{vk_sdk_path}) catch @panic("OOM");
+    defer b.allocator.free(include_path);
+
+    mod.addLibraryPath(.{ .cwd_relative = lib_path });
+    mod.addIncludePath(.{ .cwd_relative = include_path });
 }
