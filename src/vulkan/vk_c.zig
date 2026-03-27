@@ -12,6 +12,7 @@ pub const functions = struct {
     pub const getPhysicalDeviceQueueFamilyProperties = c.vkGetPhysicalDeviceQueueFamilyProperties;
     pub const createDevice = c.vkCreateDevice;
     pub const destroyDevice = c.vkDestroyDevice;
+    pub const getPhysicalDeviceSurfaceSupportKHR = c.vkGetPhysicalDeviceSurfaceSupportKHR;
 };
 
 pub const structs = struct {
@@ -25,7 +26,9 @@ pub const structs = struct {
     pub const DeviceQueueCI = c.VkDeviceQueueCreateInfo;
     pub const DeviceCI = c.VkDeviceCreateInfo;
     pub const Device = c.VkDevice;
+    pub const Surface = c.VkSurfaceKHR;
     pub const Result = c.VkResult;
+    pub const Bool = c.VkBool32;
 };
 
 pub const constants = struct {

@@ -12,23 +12,17 @@ pub const sdl = @cImport({
 });
 
 pub const DeviceQueueIndices = struct {
-    graphics: ?u32,
+    graphics: ?u32 = null,
+    present: ?u32 = null,
 
     pub fn isComplete(self: *DeviceQueueIndices) bool {
-        if (self.graphics) |_| {
-            return true;
-        }
-
-        return false;
+        _ = self.graphics orelse return false;
+        _ = self.present orelse return false;
+        return true;
     }
 };
 
-pub const Device = struct {
-    queue_indices: DeviceQueueIndices,
-    device: vkst.Device,
-};
-
-pub fn createInstance(allocator: std.mem.Allocator, enable_val: bool) !vkst.Instance {
+pub fn createInstance(allocator: std.mem.Allocator, enable_val: bool, instance: *vkst.Instance) !void {
     const app_info = std.mem.zeroInit(vkst.AppInfo, .{
         .sType = vkcon.ST_APPLICATION_INFO,
         .pApplicationName = "Test",
@@ -59,14 +53,11 @@ pub fn createInstance(allocator: std.mem.Allocator, enable_val: bool) !vkst.Inst
         create_info.ppEnabledLayerNames = &val_layers;
     }
 
-    var instance: vkst.Instance = undefined;
-    const result = vkfn.createInstance(&create_info, null, &instance);
+    const result = vkfn.createInstance(&create_info, null, instance);
     try e.logIfError(result, "Creating Instance");
-
-    return instance;
 }
 
-pub fn chooseDevice(allocator: std.mem.Allocator, instance: vkst.Instance) !Device {
+pub fn chooseDevice(allocator: std.mem.Allocator, instance: vkst.Instance, device: *vkst.Device, q_indices: *DeviceQueueIndices) !void {
     var arena = std.heap.ArenaAllocator.init(allocator);
     var a = arena.allocator();
     defer arena.deinit();
@@ -94,17 +85,16 @@ pub fn chooseDevice(allocator: std.mem.Allocator, instance: vkst.Instance) !Devi
     var d_props: vkst.PDeviceProperties = undefined;
     var d_feats: vkst.PDeviceFeatures = undefined;
     var p_device: ?vkst.PDevice = undefined;
-    var q_indices: ?DeviceQueueIndices = undefined;
     var high_score: u32 = 0;
-    for (devices) |device| {
-        var indices = try getDeviceQueueIndices(a, device);
+    for (devices) |d| {
+        var indices = try getDeviceQueueIndices(a, d);
         if (!indices.isComplete()) {
             continue;
         }
 
         var device_score: u32 = 0;
-        vkfn.getDevicePhysicalProperties(device, &d_props);
-        vkfn.getDevicePhysicalFeatures(device, &d_feats);
+        vkfn.getDevicePhysicalProperties(d, &d_props);
+        vkfn.getDevicePhysicalFeatures(d, &d_feats);
 
         if (d_props.deviceType == vkcon.PDT_DISCRETE_GPU) {
             device_score += 1000;
@@ -113,8 +103,8 @@ pub fn chooseDevice(allocator: std.mem.Allocator, instance: vkst.Instance) !Devi
         device_score += d_props.limits.maxImageDimension2D;
 
         if (device_score > high_score) {
-            p_device = device;
-            q_indices = indices;
+            p_device = d;
+            q_indices.* = indices;
             high_score = device_score;
         }
     }
@@ -127,7 +117,7 @@ pub fn chooseDevice(allocator: std.mem.Allocator, instance: vkst.Instance) !Devi
     const queue_priority: f32 = 1.0;
     const queue_ci: vkst.DeviceQueueCI = .{
         .sType = vkcon.ST_DEVICE_QUEUE_CI,
-        .queueFamilyIndex = q_indices.?.graphics.?,
+        .queueFamilyIndex = q_indices.graphics.?,
         .queueCount = 1,
         .pQueuePriorities = &queue_priority,
     };
@@ -141,18 +131,15 @@ pub fn chooseDevice(allocator: std.mem.Allocator, instance: vkst.Instance) !Devi
         .pEnabledFeatures = &device_feats,
     };
 
-    var device: vkst.Device = undefined;
-    result = vkfn.createDevice(p_device.?, &device_ci, null, &device);
+    result = vkfn.createDevice(p_device.?, &device_ci, null, device);
     try e.logIfError(result, "Creating Logical Device");
-
-    return .{
-        .queue_indices = q_indices.?,
-        .device = device,
-    };
 }
 
 fn getDeviceQueueIndices(allocator: std.mem.Allocator, device: vkst.PDevice) !DeviceQueueIndices {
-    var indices: DeviceQueueIndices = undefined;
+    var indices: DeviceQueueIndices = .{
+        .graphics = null,
+        .present = null,
+    };
     var queue_count: u32 = 0;
     vkfn.getPhysicalDeviceQueueFamilyProperties(device, &queue_count, null);
 
@@ -161,12 +148,12 @@ fn getDeviceQueueIndices(allocator: std.mem.Allocator, device: vkst.PDevice) !De
     _ = vkfn.getPhysicalDeviceQueueFamilyProperties(device, &queue_count, queue_properties.ptr);
 
     for (queue_properties, 0..queue_properties.len) |prop, i| {
-        if (prop.queueFlags & vkcon.B_QUEUE_GRAPHICS == vkcon.B_QUEUE_GRAPHICS) {
-            indices.graphics = @intCast(i);
-        }
-
         if (indices.isComplete()) {
             break;
+        }
+
+        if (prop.queueFlags & vkcon.B_QUEUE_GRAPHICS == vkcon.B_QUEUE_GRAPHICS) {
+            indices.graphics = @intCast(i);
         }
     }
 

@@ -8,8 +8,8 @@ pub fn createVulkan() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    var vkEngine = try vke.Engine.init(gpa.allocator(), true);
-    defer vkEngine.cleanup();
+    try vke.init(gpa.allocator(), true);
+    defer vke.cleanup();
 
-    try vkEngine.run();
+    try vke.run();
 }
