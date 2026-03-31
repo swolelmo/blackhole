@@ -13,6 +13,11 @@ pub const functions = struct {
     pub const createDevice = c.vkCreateDevice;
     pub const destroyDevice = c.vkDestroyDevice;
     pub const getPhysicalDeviceSurfaceSupportKHR = c.vkGetPhysicalDeviceSurfaceSupportKHR;
+    pub const getDeviceQueue = c.vkGetDeviceQueue;
+    pub const enumerateDeviceExtensionProperties = c.vkEnumerateDeviceExtensionProperties;
+    pub const getPhysicalDeviceSurfaceCapabilities = c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR;
+    pub const getPhysicalDeviceSurfaceFormats = c.vkGetPhysicalDeviceSurfaceFormatsKHR;
+    pub const getPhysicalDeviceSurfacePresentModes = c.vkGetPhysicalDeviceSurfacePresentModesKHR;
 };
 
 pub const structs = struct {
@@ -29,6 +34,12 @@ pub const structs = struct {
     pub const Surface = c.VkSurfaceKHR;
     pub const Result = c.VkResult;
     pub const Bool = c.VkBool32;
+    pub const Queue = c.VkQueue;
+    pub const ExtensionProperties = c.VkExtensionProperties;
+    pub const SurfaceCapabilities = c.VkSurfaceCapabilitiesKHR;
+    pub const SurfaceFormat = c.VkSurfaceFormatKHR;
+    pub const PresentMode = c.VkPresentModeKHR;
+    pub const Extent2D = c.VkExtent2D;
 };
 
 pub const constants = struct {
@@ -45,10 +56,20 @@ pub const constants = struct {
 
     // Extension Names
     pub const EN_DEBUG_UTILS = c.VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+    pub const EN_SWAPCHAIN = c.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 
     // Physical Device Types
     pub const PDT_DISCRETE_GPU = c.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 
     // Queue bits
     pub const B_QUEUE_GRAPHICS = c.VK_QUEUE_GRAPHICS_BIT;
+
+    // Formats
+    pub const F_B8G8R8A8_SRGB = c.VK_FORMAT_B8G8R8A8_SRGB;
+
+    // Color Spaces
+    pub const CS_SRGB_NONLINEAR = c.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+
+    // Present Modes
+    pub const PM_MAILBOX = c.VK_PRESENT_MODE_MAILBOX_KHR;
 };
