@@ -44,7 +44,7 @@ pub fn init(allocator: std.mem.Allocator, enable_val: bool) !void {
     device = try vkinit.createDevice(p_device, q_indices);
     vkfn.getDeviceQueue(device, q_indices.graphics.?, 0, &q_graphics);
     vkfn.getDeviceQueue(device, q_indices.present.?, 0, &q_present);
-    try vkinit.createSwapchain(p_device, surface, window.?);
+    swapchain = try vkinit.createSwapchain(device, p_device, surface, window.?, q_indices);
 }
 
 pub fn run() !void {
@@ -67,6 +67,10 @@ pub fn run() !void {
 }
 
 pub fn cleanup() void {
+    if (swapchain) |s| {
+        vkfn.destroySwapchain(device, s, null);
+    }
+
     if (device) |d| {
         vkfn.destroyDevice(d, null);
     }

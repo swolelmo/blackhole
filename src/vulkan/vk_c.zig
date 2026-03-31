@@ -18,6 +18,8 @@ pub const functions = struct {
     pub const getPhysicalDeviceSurfaceCapabilities = c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR;
     pub const getPhysicalDeviceSurfaceFormats = c.vkGetPhysicalDeviceSurfaceFormatsKHR;
     pub const getPhysicalDeviceSurfacePresentModes = c.vkGetPhysicalDeviceSurfacePresentModesKHR;
+    pub const createSwapchain = c.vkCreateSwapchainKHR;
+    pub const destroySwapchain = c.vkDestroySwapchainKHR;
 };
 
 pub const structs = struct {
@@ -40,16 +42,24 @@ pub const structs = struct {
     pub const SurfaceFormat = c.VkSurfaceFormatKHR;
     pub const PresentMode = c.VkPresentModeKHR;
     pub const Extent2D = c.VkExtent2D;
+    pub const SwapchainCI = c.VkSwapchainCreateInfoKHR;
+    pub const Swapchain = c.VkSwapchainKHR;
 };
 
 pub const constants = struct {
     pub const API_1_4 = c.VK_API_VERSION_1_4;
+    pub const NULL_HANDLE = c.VK_NULL_HANDLE;
 
     // Structure Types
     pub const ST_APPLICATION_INFO = c.VK_STRUCTURE_TYPE_APPLICATION_INFO;
     pub const ST_INSTANCE_CI = c.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     pub const ST_DEVICE_QUEUE_CI = c.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     pub const ST_DEVICE_CI = c.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    pub const ST_SWAPCHAIN_CI = c.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+
+    // Bool
+    pub const TRUE = c.VK_TRUE;
+    pub const FALSE = c.VK_FALSE;
 
     // VK_Results
     pub const SUCCESS = c.VK_SUCCESS;
@@ -72,4 +82,14 @@ pub const constants = struct {
 
     // Present Modes
     pub const PM_MAILBOX = c.VK_PRESENT_MODE_MAILBOX_KHR;
+
+    // Image Usage bits
+    pub const B_IU_COLOR_ATTACHMENT = c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    // Sharing mode
+    pub const SM_CONCURRENT = c.VK_SHARING_MODE_CONCURRENT;
+    pub const SM_EXCLUSIVE = c.VK_SHARING_MODE_EXCLUSIVE;
+
+    // Composite Alpha bits
+    pub const B_CA_OPAQUE = c.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 };

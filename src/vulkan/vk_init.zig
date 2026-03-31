@@ -156,9 +156,9 @@ pub fn createDevice(p_device: vkst.PDevice, q_indices: DeviceQueueIndices) !vkst
     return device;
 }
 
-pub fn createSwapchain(p_device: vkst.PDevice, surface: vkst.Surface, window: *sdl.SDL_Window) !void {
+pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vkst.Surface, window: *sdl.SDL_Window, q_indices: DeviceQueueIndices) !vkst.Swapchain {
     var capabilities: vkst.SurfaceCapabilities = undefined; 
-    const result = vkfn.getPhysicalDeviceSurfaceCapabilities(p_device, surface, &capabilities);
+    var result = vkfn.getPhysicalDeviceSurfaceCapabilities(p_device, surface, &capabilities);
     try e.logIfError(result, "Getting PDevice Surface Capabilities");
     var extent: vkst.Extent2D = undefined;
     if (capabilities.currentExtent.width != std.math.maxInt(i32)) {
@@ -183,6 +183,41 @@ pub fn createSwapchain(p_device: vkst.PDevice, surface: vkst.Surface, window: *s
             capabilities.minImageExtent.height,
             capabilities.maxImageExtent.height);
     }
+
+    var image_count = capabilities.maxImageCount;
+    if (image_count == 0) image_count = capabilities.minImageCount + 1;
+
+    var create_info: vkst.SwapchainCI = .{
+        .sType = vkcon.ST_SWAPCHAIN_CI,
+        .surface = surface,
+        .minImageCount = image_count,
+        .imageFormat = vkcon.F_B8G8R8A8_SRGB,
+        .imageColorSpace = vkcon.CS_SRGB_NONLINEAR,
+        .imageExtent = extent,
+        .imageArrayLayers = 1,
+        .imageUsage = vkcon.B_IU_COLOR_ATTACHMENT,
+        .imageSharingMode = vkcon.SM_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = null,
+        .preTransform = capabilities.currentTransform,
+        .compositeAlpha = vkcon.B_CA_OPAQUE,
+        .presentMode = vkcon.PM_MAILBOX,
+        .clipped = vkcon.TRUE,
+        .oldSwapchain = @ptrCast(vkcon.NULL_HANDLE),
+    };
+
+    const q_family_indices: [2]u32 = .{q_indices.graphics.?, q_indices.present.?};
+    if (q_family_indices[0] != q_family_indices[1]) {
+        create_info.imageSharingMode = vkcon.SM_CONCURRENT;
+        create_info.queueFamilyIndexCount = 2;
+        create_info.pQueueFamilyIndices = &q_family_indices;
+    }
+
+    var swapchain: vkst.Swapchain = undefined;
+    result = vkfn.createSwapchain(device, &create_info, null, &swapchain);
+    try e.logIfError(result, "Creating Swapchain");
+
+    return swapchain;
 }
 
 fn deviceHasExtensions(a: std.mem.Allocator, pd: vkst.PDevice) !bool {
