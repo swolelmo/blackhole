@@ -22,7 +22,7 @@ pub const DeviceQueueIndices = struct {
     }
 };
 
-pub fn createInstance(allocator: std.mem.Allocator, enable_val: bool, instance: *vkst.Instance) !void {
+pub fn createInstance(a: std.mem.Allocator, enable_val: bool, instance: *vkst.Instance) !void {
     const app_info = std.mem.zeroInit(vkst.AppInfo, .{
         .sType = vkcon.ST_APPLICATION_INFO,
         .pApplicationName = "Test",
@@ -34,10 +34,10 @@ pub fn createInstance(allocator: std.mem.Allocator, enable_val: bool, instance: 
 
     var sdl_ext_count: u32 = 0;
     const sdl_extensions: [*c]const [*c]const u8 = @ptrCast(sdl.SDL_Vulkan_GetInstanceExtensions(&sdl_ext_count).?);
-    var required_extensions = try std.ArrayList([*c]const u8).initCapacity(allocator, sdl_ext_count);
-    defer required_extensions.deinit(allocator);
+    var required_extensions = try std.ArrayList([*c]const u8).initCapacity(a, sdl_ext_count);
+    defer required_extensions.deinit(a);
 
-    try required_extensions.appendSlice(allocator, sdl_extensions[0..sdl_ext_count]);
+    try required_extensions.appendSlice(a, sdl_extensions[0..sdl_ext_count]);
 
     var create_info = std.mem.zeroInit(vkst.InstanceCI, .{
         .sType = vkcon.ST_INSTANCE_CI,
@@ -56,11 +56,7 @@ pub fn createInstance(allocator: std.mem.Allocator, enable_val: bool, instance: 
     try e.logIfError(result, "Creating Instance");
 }
 
-pub fn choosePhysicalDevice(allocator: std.mem.Allocator, instance: vkst.Instance, surface: vkst.Surface) !vkst.PDevice {
-    var arena = std.heap.ArenaAllocator.init(allocator);
-    var a = arena.allocator();
-    defer arena.deinit();
-
+pub fn choosePhysicalDevice(a: std.mem.Allocator, instance: vkst.Instance, surface: vkst.Surface) !vkst.PDevice {
     var device_count: u32 = 0;
     const result = vkfn.enumeratePhysicalDevices(instance, &device_count, null);
     try e.logIfError(result, "Choosing Device");
