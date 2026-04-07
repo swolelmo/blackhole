@@ -10,6 +10,9 @@ const sdl = @import("..\\sdl\\sdl_c.zig").sdl;
 
 const dev_extensions = [_][]const u8{ vkcon.EN_SWAPCHAIN };
 const val_layers = [_][]const u8{"VK_LAYER_KHRONOS_validation"};
+pub const num_frame_buffers = 2;
+const image_format = vkcon.F_B8G8R8A8_SRGB;
+const image_color = vkcon.CS_SRGB_NONLINEAR;
 
 pub const DeviceQueueIndices = struct {
     graphics: ?u32 = null,
@@ -25,6 +28,13 @@ pub const DeviceQueueIndices = struct {
 pub const FrameData = struct {
     command_pool: vkst.CommandPool = null,
     command_buffer: vkst.CommandBuffer = null,
+};
+
+pub const SwapchainData = struct {
+    swapchain: vkst.Swapchain = undefined,
+    extent: vkst.Extent2D = undefined,
+    images: [3]vkst.Image = undefined,
+    image_views: [3]vkst.ImageView = undefined,
 };
 
 pub fn createInstance(a: std.mem.Allocator, enable_val: bool, instance: *vkst.Instance) !void {
@@ -154,16 +164,15 @@ pub fn createDevice(p_device: vkst.PDevice, q_indices: DeviceQueueIndices) !vkst
     const result = vkfn.createDevice(p_device, &device_ci, null, &device);
     try e.logIfError(result, "Creating Logical Device");
 
-    return device;
-}
+    return device; }
 
-pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vkst.Surface, window: *sdl.SDL_Window, q_indices: DeviceQueueIndices) !vkst.Swapchain {
+pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vkst.Surface, window: *sdl.SDL_Window, q_indices: DeviceQueueIndices) !SwapchainData {
+    var to_return: SwapchainData = undefined;
     var capabilities: vkst.SurfaceCapabilities = undefined; 
     var result = vkfn.getPhysicalDeviceSurfaceCapabilities(p_device, surface, &capabilities);
     try e.logIfError(result, "Getting PDevice Surface Capabilities");
-    var extent: vkst.Extent2D = undefined;
     if (capabilities.currentExtent.width != std.math.maxInt(i32)) {
-        extent = capabilities.currentExtent;
+        to_return.extent = capabilities.currentExtent;
     }
     else {
         var width: i32 = 0;
@@ -172,29 +181,31 @@ pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vks
             return error.SDLGetWindowSizeError;
         }
 
-        extent.width = @intCast(width);
-        extent.width = std.math.clamp(
-            extent.width,
+        to_return.extent.width = @intCast(width);
+        to_return.extent.width = std.math.clamp(
+            to_return.extent.width,
             capabilities.minImageExtent.width,
             capabilities.maxImageExtent.width);
 
-        extent.height = @intCast(height);
-        extent.height = std.math.clamp(
-            extent.height,
+        to_return.extent.height = @intCast(height);
+        to_return.extent.height = std.math.clamp(
+            to_return.extent.height,
             capabilities.minImageExtent.height,
             capabilities.maxImageExtent.height);
     }
 
-    var image_count = capabilities.maxImageCount;
-    if (image_count == 0) image_count = capabilities.minImageCount + 1;
+    const image_count = 3;
+    if (image_count < capabilities.minImageCount) {
+        return error.NotEnoughImages;
+    }
 
     var create_info: vkst.SwapchainCI = .{
         .sType = vkcon.ST_SWAPCHAIN_CI,
         .surface = surface,
         .minImageCount = image_count,
-        .imageFormat = vkcon.F_B8G8R8A8_SRGB,
-        .imageColorSpace = vkcon.CS_SRGB_NONLINEAR,
-        .imageExtent = extent,
+        .imageFormat = image_format,
+        .imageColorSpace = image_color,
+        .imageExtent = to_return.extent,
         .imageArrayLayers = 1,
         .imageUsage = vkcon.B_IU_COLOR_ATTACHMENT,
         .imageSharingMode = vkcon.SM_EXCLUSIVE,
@@ -214,14 +225,13 @@ pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vks
         create_info.pQueueFamilyIndices = &q_family_indices;
     }
 
-    var swapchain: vkst.Swapchain = undefined;
-    result = vkfn.createSwapchain(device, &create_info, null, &swapchain);
+    result = vkfn.createSwapchain(device, &create_info, null, &to_return.swapchain);
     try e.logIfError(result, "Creating Swapchain");
 
-    return swapchain;
+    return to_return;
 }
 
-pub fn createCommands(device: vkst.Device, graphics_queue_index: u32, frames: []FrameData) !void {
+pub fn createCommands(device: vkst.Device, graphics_queue_index: u32) ![num_frame_buffers]FrameData {
     const command_pool_ci = std.mem.zeroInit(
         vkst.CommandPoolCI,
         .{
@@ -231,8 +241,9 @@ pub fn createCommands(device: vkst.Device, graphics_queue_index: u32, frames: []
             .flags = vkcon.B_CPC_RESET_COMMAND_BUFFER,
         });
 
-    for (0..frames.len) |i| {
-        var result = vkfn.createCommandPool(device, &command_pool_ci, null, @constCast(&frames[i].command_pool));
+    var to_return: [2]FrameData = undefined;
+    for (0..to_return.len) |i| {
+        var result = vkfn.createCommandPool(device, &command_pool_ci, null, @constCast(&to_return[i].command_pool));
         try e.logIfError(result, "Creating Command pool");
 
         const buffer_ai = std.mem.zeroInit(
@@ -240,15 +251,17 @@ pub fn createCommands(device: vkst.Device, graphics_queue_index: u32, frames: []
             .{
                 .sType = vkcon.ST_COMMAND_BUFFER_AI,
                 .pNext = null,
-                .commandPool = frames[i].command_pool,
+                .commandPool = to_return[i].command_pool,
                 .commandBufferCount = 1,
                 .level = vkcon.CBL_PRIMARY,
             });
 
 
-        result = vkfn.allocateCommandBuffers(device, &buffer_ai, @constCast(&frames[i].command_buffer));
+        result = vkfn.allocateCommandBuffers(device, &buffer_ai, @constCast(&to_return[i].command_buffer));
         try e.logIfError(result, "Allocating Command Buffers");
     }
+
+    return to_return;
 }
 
 fn generateCommandPoolCI(queue_index: u32, flags: u32) vkst.CommandPoolCI {
@@ -337,8 +350,8 @@ fn deviceHasSurfaceSwapchainSupport(a: std.mem.Allocator, surface: vkst.Surface,
     _ = vkfn.getPhysicalDeviceSurfaceFormats(pd, surface, &format_count, formats.ptr);
 
     for (formats) |f| {
-        if (f.format == vkcon.F_B8G8R8A8_SRGB
-            and f.colorSpace == vkcon.CS_SRGB_NONLINEAR) {
+        if (f.format == image_format
+            and f.colorSpace == image_color) {
             break;
         }
     }
