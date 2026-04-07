@@ -20,6 +20,9 @@ pub const functions = struct {
     pub const getPhysicalDeviceSurfacePresentModes = c.vkGetPhysicalDeviceSurfacePresentModesKHR;
     pub const createSwapchain = c.vkCreateSwapchainKHR;
     pub const destroySwapchain = c.vkDestroySwapchainKHR;
+    pub const createCommandPool = c.vkCreateCommandPool;
+    pub const allocateCommandBuffers = c.vkAllocateCommandBuffers;
+    pub const destroyCommandPool = c.vkDestroyCommandPool;
 };
 
 pub const structs = struct {
@@ -44,6 +47,10 @@ pub const structs = struct {
     pub const Extent2D = c.VkExtent2D;
     pub const SwapchainCI = c.VkSwapchainCreateInfoKHR;
     pub const Swapchain = c.VkSwapchainKHR;
+    pub const CommandPoolCI = c.VkCommandPoolCreateInfo;
+    pub const CommandPool = c.VkCommandPool;
+    pub const CommandBufferAI = c.VkCommandBufferAllocateInfo;
+    pub const CommandBuffer = c.VkCommandBuffer;
 };
 
 pub const constants = struct {
@@ -56,6 +63,8 @@ pub const constants = struct {
     pub const ST_DEVICE_QUEUE_CI = c.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     pub const ST_DEVICE_CI = c.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     pub const ST_SWAPCHAIN_CI = c.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    pub const ST_COMMAND_POOL_CI = c.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pub const ST_COMMAND_BUFFER_AI = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
     // Bool
     pub const TRUE = c.VK_TRUE;
@@ -92,4 +101,10 @@ pub const constants = struct {
 
     // Composite Alpha bits
     pub const B_CA_OPAQUE = c.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
+    // Command Pool Create bits
+    pub const B_CPC_RESET_COMMAND_BUFFER = c.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    // Command Buffer Level
+    pub const CBL_PRIMARY = c.VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 };

@@ -22,6 +22,11 @@ pub const DeviceQueueIndices = struct {
     }
 };
 
+pub const FrameData = struct {
+    command_pool: vkst.CommandPool = null,
+    command_buffer: vkst.CommandBuffer = null,
+};
+
 pub fn createInstance(a: std.mem.Allocator, enable_val: bool, instance: *vkst.Instance) !void {
     const app_info = std.mem.zeroInit(vkst.AppInfo, .{
         .sType = vkcon.ST_APPLICATION_INFO,
@@ -214,6 +219,59 @@ pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vks
     try e.logIfError(result, "Creating Swapchain");
 
     return swapchain;
+}
+
+pub fn createCommands(device: vkst.Device, graphics_queue_index: u32, frames: []FrameData) !void {
+    const command_pool_ci = std.mem.zeroInit(
+        vkst.CommandPoolCI,
+        .{
+            .sType = vkcon.ST_COMMAND_POOL_CI,
+            .pNext = null,
+            .queueFamilyIndex = graphics_queue_index,
+            .flags = vkcon.B_CPC_RESET_COMMAND_BUFFER,
+        });
+
+    for (0..frames.len) |i| {
+        var result = vkfn.createCommandPool(device, &command_pool_ci, null, @constCast(&frames[i].command_pool));
+        try e.logIfError(result, "Creating Command pool");
+
+        const buffer_ai = std.mem.zeroInit(
+            vkst.CommandBufferAI,
+            .{
+                .sType = vkcon.ST_COMMAND_BUFFER_AI,
+                .pNext = null,
+                .commandPool = frames[i].command_pool,
+                .commandBufferCount = 1,
+                .level = vkcon.CBL_PRIMARY,
+            });
+
+
+        result = vkfn.allocateCommandBuffers(device, &buffer_ai, @constCast(&frames[i].command_buffer));
+        try e.logIfError(result, "Allocating Command Buffers");
+    }
+}
+
+fn generateCommandPoolCI(queue_index: u32, flags: u32) vkst.CommandPoolCI {
+    return std.mem.zeroInit(
+        vkst.CommandPoolCI,
+        .{
+            .sType = vkcon.ST_COMMAND_POOL_CI,
+            .pNext = null,
+            .queueFamilyIndex = queue_index,
+            .flags = flags,
+        });
+}
+
+fn generateCommandBufferAI(pool: vkst.CommandPool, count: u32) vkst.CommandBufferAI {
+    return std.mem.zeroInit(
+        vkst.CommandBufferAI,
+        .{
+            .sType = vkcon.ST_COMMAND_BUFFER_AI,
+            .pNext = null,
+            .commandPool = pool,
+            .commandBufferCount = count,
+            .level = vkcon.CBL_PRIMARY,
+        });
 }
 
 fn deviceHasExtensions(a: std.mem.Allocator, pd: vkst.PDevice) !bool {
