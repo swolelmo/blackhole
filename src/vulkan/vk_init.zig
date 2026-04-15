@@ -10,7 +10,7 @@ const sdl = @import("..\\sdl\\sdl_c.zig").sdl;
 
 const dev_extensions = [_][]const u8{ vkcon.EN_SWAPCHAIN };
 const val_layers = [_][]const u8{"VK_LAYER_KHRONOS_validation"};
-pub const num_frame_buffers = 2;
+pub const num_frame_buffers = 3;
 const image_format = vkcon.F_B8G8R8A8_SRGB;
 const image_color = vkcon.CS_SRGB_NONLINEAR;
 
@@ -28,13 +28,18 @@ pub const DeviceQueueIndices = struct {
 pub const FrameData = struct {
     command_pool: vkst.CommandPool = null,
     command_buffer: vkst.CommandBuffer = null,
+    swapchain_semaphore: vkst.Semaphore = undefined,
+    render_semaphore: vkst.Semaphore = undefined,
+    render_fence: vkst.Fence = undefined,
 };
 
 pub const SwapchainData = struct {
     swapchain: vkst.Swapchain = undefined,
     extent: vkst.Extent2D = undefined,
+    frames: [2]FrameData = undefined,
     images: [3]vkst.Image = undefined,
     image_views: [3]vkst.ImageView = undefined,
+    num_images: u8 = 0,
 };
 
 pub fn createInstance(a: std.mem.Allocator, enable_val: bool, instance: *vkst.Instance) !void {
@@ -194,15 +199,18 @@ pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vks
             capabilities.maxImageExtent.height);
     }
 
-    const image_count = 3;
-    if (image_count < capabilities.minImageCount) {
-        return error.NotEnoughImages;
+    to_return.num_images = 3;
+    if (to_return.num_images > capabilities.maxImageCount) {
+        to_return.num_images = 2;
+        if (to_return.num_images > capabilities.maxImageCount) {
+            return error.NotEnoughImages;
+        }
     }
 
     var create_info: vkst.SwapchainCI = .{
         .sType = vkcon.ST_SWAPCHAIN_CI,
         .surface = surface,
-        .minImageCount = image_count,
+        .minImageCount = to_return.num_images,
         .imageFormat = image_format,
         .imageColorSpace = image_color,
         .imageExtent = to_return.extent,
@@ -228,10 +236,44 @@ pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vks
     result = vkfn.createSwapchain(device, &create_info, null, &to_return.swapchain);
     try e.logIfError(result, "Creating Swapchain");
 
+    var image_count: u32 = 0;
+    result = vkfn.getSwapchainImages(device, to_return.swapchain, &image_count, null);
+    try e.logIfError(result, "Getting Swapchain Images");
+    if (image_count > 3) {
+        return error.TooManyImages;
+    }
+
+    _ = vkfn.getSwapchainImages(device, to_return.swapchain, &image_count, &to_return.images);
+
+    var image_view_ci: vkst.ImageViewCI = .{
+        .sType = vkcon.ST_IMAGE_VIEW_CI,
+        .viewType = vkcon.IVT_2D,
+        .format = image_format,
+        .components = .{
+            .r = vkcon.COMPONENT_SWIZZLE_IDENTITY,
+            .g = vkcon.COMPONENT_SWIZZLE_IDENTITY,
+            .b = vkcon.COMPONENT_SWIZZLE_IDENTITY,
+            .a = vkcon.COMPONENT_SWIZZLE_IDENTITY,
+        },
+        .subresourceRange = .{
+            .aspectMask = vkcon.B_IA_COLOR,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+    };
+
+    for (0..image_count) |i| {
+        image_view_ci.image = to_return.images[i];
+        result = vkfn.createImageView(device, &image_view_ci, null, &to_return.image_views[i]);
+        try e.logIfError(result, "Creating Image View");
+    }
+
     return to_return;
 }
 
-pub fn createCommands(device: vkst.Device, graphics_queue_index: u32) ![num_frame_buffers]FrameData {
+pub fn createCommands(device: vkst.Device, graphics_queue_index: u32, swapchain: *SwapchainData) !void {
     const command_pool_ci = std.mem.zeroInit(
         vkst.CommandPoolCI,
         .{
@@ -241,9 +283,8 @@ pub fn createCommands(device: vkst.Device, graphics_queue_index: u32) ![num_fram
             .flags = vkcon.B_CPC_RESET_COMMAND_BUFFER,
         });
 
-    var to_return: [2]FrameData = undefined;
-    for (0..to_return.len) |i| {
-        var result = vkfn.createCommandPool(device, &command_pool_ci, null, @constCast(&to_return[i].command_pool));
+    for (0..swapchain.frames.len) |i| {
+        var result = vkfn.createCommandPool(device, &command_pool_ci, null, @constCast(&swapchain.frames[i].command_pool));
         try e.logIfError(result, "Creating Command pool");
 
         const buffer_ai = std.mem.zeroInit(
@@ -251,17 +292,15 @@ pub fn createCommands(device: vkst.Device, graphics_queue_index: u32) ![num_fram
             .{
                 .sType = vkcon.ST_COMMAND_BUFFER_AI,
                 .pNext = null,
-                .commandPool = to_return[i].command_pool,
+                .commandPool = swapchain.frames[i].command_pool,
                 .commandBufferCount = 1,
                 .level = vkcon.CBL_PRIMARY,
             });
 
 
-        result = vkfn.allocateCommandBuffers(device, &buffer_ai, @constCast(&to_return[i].command_buffer));
+        result = vkfn.allocateCommandBuffers(device, &buffer_ai, @constCast(&swapchain.frames[i].command_buffer));
         try e.logIfError(result, "Allocating Command Buffers");
     }
-
-    return to_return;
 }
 
 fn generateCommandPoolCI(queue_index: u32, flags: u32) vkst.CommandPoolCI {

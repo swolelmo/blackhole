@@ -8,6 +8,9 @@ const vkst = vk.structs;
 
 const sdl = @import("..\\sdl\\sdl_c.zig").sdl;
 
+const dev_extensions = [_][]const u8{ vkcon.EN_SWAPCHAIN };
+const val_layers = [_][]const u8{"VK_LAYER_KHRONOS_validation"};
+
 var arena: std.heap.ArenaAllocator = undefined;
 var allocator: ?std.mem.Allocator = null;
 var window: ?*sdl.SDL_Window = null;
@@ -18,8 +21,14 @@ var device: vkst.Device = null;
 var q_indices: vkinit.DeviceQueueIndices = .{ .graphics = null, .present = null };
 var q_graphics: vkst.Queue = null;
 var q_present: vkst.Queue = null;
-var swapchain: vkinit.SwapchainData = undefined;
-var frames: [vkinit.num_frame_buffers]vkinit.FrameData = undefined;
+var swapchain: vkinit.SwapchainData = .{
+    .swapchain = null,
+    .extent = undefined,
+    .images = undefined,
+    .image_views = undefined,
+    .frames = undefined,
+    .num_images = 0,
+};
 
 pub fn init(a: std.mem.Allocator, enable_val: bool) !void {
     arena = std.heap.ArenaAllocator.init(a);
@@ -44,7 +53,7 @@ pub fn init(a: std.mem.Allocator, enable_val: bool) !void {
     vkfn.getDeviceQueue(device, q_indices.graphics.?, 0, &q_graphics);
     vkfn.getDeviceQueue(device, q_indices.present.?, 0, &q_present);
     swapchain = try vkinit.createSwapchain(device, p_device, surface, window.?, q_indices);
-    frames = try vkinit.createCommands(device, q_indices.graphics.?);
+    try vkinit.createCommands(device, q_indices.graphics.?, &swapchain);
 }
 
 pub fn run() !void {
@@ -67,11 +76,15 @@ pub fn run() !void {
 }
 
 pub fn cleanup() void {
-    for (0..frames.len) |i| {
-        vkfn.destroyCommandPool(device, frames[i].command_pool, null);
+    for (0..swapchain.frames.len) |i| {
+        vkfn.destroyCommandPool(device, swapchain.frames[i].command_pool, null);
     }
 
     if (swapchain.swapchain) |s| {
+        for (0..swapchain.num_images) |i| {
+            vkfn.destroyImageView(device, swapchain.image_views[i], null);
+        }
+
         vkfn.destroySwapchain(device, s, null);
     }
 
