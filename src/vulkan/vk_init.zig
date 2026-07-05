@@ -1,6 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
 const e = @import("vk_error.zig");
+const com = @import("vk_common.zig");
 const vk = @import("vk_c.zig");
 const vkfn = vk.functions;
 const vkcon = vk.constants;
@@ -13,34 +14,6 @@ const val_layers = [_][]const u8{"VK_LAYER_KHRONOS_validation"};
 pub const num_frame_buffers = 3;
 const image_format = vkcon.F_B8G8R8A8_SRGB;
 const image_color = vkcon.CS_SRGB_NONLINEAR;
-
-pub const DeviceQueueIndices = struct {
-    graphics: ?u32 = null,
-    present: ?u32 = null,
-
-    pub fn isComplete(self: *DeviceQueueIndices) bool {
-        _ = self.graphics orelse return false;
-        _ = self.present orelse return false;
-        return true;
-    }
-};
-
-pub const FrameData = struct {
-    command_pool: vkst.CommandPool = null,
-    command_buffer: vkst.CommandBuffer = null,
-    swapchain_semaphore: vkst.Semaphore = undefined,
-    render_semaphore: vkst.Semaphore = undefined,
-    render_fence: vkst.Fence = undefined,
-};
-
-pub const SwapchainData = struct {
-    swapchain: vkst.Swapchain = undefined,
-    extent: vkst.Extent2D = undefined,
-    frames: [2]FrameData = undefined,
-    images: [3]vkst.Image = undefined,
-    image_views: [3]vkst.ImageView = undefined,
-    num_images: u8 = 0,
-};
 
 pub fn createInstance(a: std.mem.Allocator, enable_val: bool, instance: *vkst.Instance) !void {
     const app_info = std.mem.zeroInit(vkst.AppInfo, .{
@@ -138,7 +111,7 @@ pub fn choosePhysicalDevice(a: std.mem.Allocator, instance: vkst.Instance, surfa
     return p_device;
 }
 
-pub fn createDevice(p_device: vkst.PDevice, q_indices: DeviceQueueIndices) !vkst.Device {
+pub fn createDevice(p_device: vkst.PDevice, q_indices: com.DeviceQueueIndices) !vkst.Device {
     // queue creation
     const queue_priority: f32 = 1.0;
     var queue_ci: [2]vkst.DeviceQueueCI = undefined;
@@ -169,10 +142,11 @@ pub fn createDevice(p_device: vkst.PDevice, q_indices: DeviceQueueIndices) !vkst
     const result = vkfn.createDevice(p_device, &device_ci, null, &device);
     try e.logIfError(result, "Creating Logical Device");
 
-    return device; }
+    return device;
+}
 
-pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vkst.Surface, window: *sdl.SDL_Window, q_indices: DeviceQueueIndices) !SwapchainData {
-    var to_return: SwapchainData = undefined;
+pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vkst.Surface, window: *sdl.SDL_Window, q_indices: com.DeviceQueueIndices) !com.SwapchainData {
+    var to_return: com.SwapchainData = undefined;
     var capabilities: vkst.SurfaceCapabilities = undefined; 
     var result = vkfn.getPhysicalDeviceSurfaceCapabilities(p_device, surface, &capabilities);
     try e.logIfError(result, "Getting PDevice Surface Capabilities");
@@ -273,7 +247,7 @@ pub fn createSwapchain(device: vkst.Device, p_device: vkst.PDevice, surface: vks
     return to_return;
 }
 
-pub fn createCommands(device: vkst.Device, graphics_queue_index: u32, swapchain: *SwapchainData) !void {
+pub fn createCommands(device: vkst.Device, graphics_queue_index: u32, swapchain: *com.SwapchainData) !void {
     const command_pool_ci = std.mem.zeroInit(
         vkst.CommandPoolCI,
         .{
@@ -282,6 +256,9 @@ pub fn createCommands(device: vkst.Device, graphics_queue_index: u32, swapchain:
             .queueFamilyIndex = graphics_queue_index,
             .flags = vkcon.B_CPC_RESET_COMMAND_BUFFER,
         });
+
+    const fence_ci = genFenceCI(vkcon.B_FC_SIGNALED);
+    const semaphore_ci = genSemaphoreCI(0);
 
     for (0..swapchain.frames.len) |i| {
         var result = vkfn.createCommandPool(device, &command_pool_ci, null, @constCast(&swapchain.frames[i].command_pool));
@@ -300,10 +277,19 @@ pub fn createCommands(device: vkst.Device, graphics_queue_index: u32, swapchain:
 
         result = vkfn.allocateCommandBuffers(device, &buffer_ai, @constCast(&swapchain.frames[i].command_buffer));
         try e.logIfError(result, "Allocating Command Buffers");
+
+        result = vkfn.createFence(device, &fence_ci, null, &swapchain.frames[i].render_fence);
+        try e.logIfError(result, "Creating Render Fence");
+
+        result = vkfn.createSemaphore(device, &semaphore_ci, null, &swapchain.frames[i].render_semaphore);
+        try e.logIfError(result, "Creating Render Semaphore");
+
+        result = vkfn.createSemaphore(device, &semaphore_ci, null, &swapchain.frames[i].swapchain_semaphore);
+        try e.logIfError(result, "Creating Swapchain Semaphore");
     }
 }
 
-fn generateCommandPoolCI(queue_index: u32, flags: u32) vkst.CommandPoolCI {
+fn genCommandPoolCI(queue_index: u32, flags: u32) vkst.CommandPoolCI {
     return std.mem.zeroInit(
         vkst.CommandPoolCI,
         .{
@@ -314,7 +300,7 @@ fn generateCommandPoolCI(queue_index: u32, flags: u32) vkst.CommandPoolCI {
         });
 }
 
-fn generateCommandBufferAI(pool: vkst.CommandPool, count: u32) vkst.CommandBufferAI {
+fn genCommandBufferAI(pool: vkst.CommandPool, count: u32) vkst.CommandBufferAI {
     return std.mem.zeroInit(
         vkst.CommandBufferAI,
         .{
@@ -324,6 +310,45 @@ fn generateCommandBufferAI(pool: vkst.CommandPool, count: u32) vkst.CommandBuffe
             .commandBufferCount = count,
             .level = vkcon.CBL_PRIMARY,
         });
+}
+
+fn genSemaphoreCI(flags: u32) vkst.SemaphoreCI {
+    return .{
+        .sType = vkcon.ST_SEMAPHORE_CI,
+        .pNext = null,
+        .flags = flags,
+    };
+}
+
+fn genFenceCI(flags: u32) vkst.FenceCI {
+    return .{
+        .sType = vkcon.ST_FENCE_CI,
+        .pNext = null,
+        .flags = flags,
+    };
+}
+
+pub fn genCommandBufferBeginInfo(flags: vkst.CommandBufferUsageFlags) vkst.CommandBufferBI {
+    const info: vkst.CommandBufferBI = .{
+        .sType = vkcon.ST_COMMAND_BUFFER_BI,
+        .pNext = null,
+        .pInheritanceInfo = null,
+        .flags = flags
+    };
+
+    return info;
+}
+
+pub fn genImageSubresourceRange(aspect_flags: vkst.ImageAspectFlags) vkst.ImageSubresourceRange {
+    const sub_range: vkst.ImageSubresourceRange = .{
+        .aspectMask = aspect_flags,
+        .baseMipLevel = 0,
+        .levelCount = vkcon.REMAINING_MIP_LEVELS,
+        .baseArrayLayers = 0,
+        .layerCount = vkcon.REMAINING_ARRAY_LAYERS,
+    };
+
+    return sub_range;
 }
 
 fn deviceHasExtensions(a: std.mem.Allocator, pd: vkst.PDevice) !bool {
@@ -347,8 +372,8 @@ fn deviceHasExtensions(a: std.mem.Allocator, pd: vkst.PDevice) !bool {
     return true;
 }
 
-pub fn getDeviceQueueIndices(a: std.mem.Allocator, surface: vkst.Surface, pd: vkst.PDevice) !DeviceQueueIndices {
-    var indices: DeviceQueueIndices = .{
+pub fn getDeviceQueueIndices(a: std.mem.Allocator, surface: vkst.Surface, pd: vkst.PDevice) !com.DeviceQueueIndices {
+    var indices: com.DeviceQueueIndices = .{
         .graphics = null,
         .present = null,
     };

@@ -26,6 +26,18 @@ pub const functions = struct {
     pub const createCommandPool = c.vkCreateCommandPool;
     pub const allocateCommandBuffers = c.vkAllocateCommandBuffers;
     pub const destroyCommandPool = c.vkDestroyCommandPool;
+    pub const createFence = c.vkCreateFence;
+    pub const destroyFence = c.vkDestroyFence;
+    pub const createSemaphore = c.vkCreateSemaphore;
+    pub const destroySemaphore = c.vkDestroySemaphore;
+    pub const waitForFences = c.vkWaitForFences;
+    pub const resetFences = c.vkResetFences;
+    pub const acquireNextImage = c.vkAcquireNextImageKHR;
+    pub const resetCommandBuffer = c.vkResetCommandBuffer;
+    pub const beginCommandBuffer = c.vkBeginCommandBuffer;
+    pub const endCommandBuffer = c.vkEndCommandBuffer;
+    pub const cmdPipelineBarrier2 = c.vkCmdPipelineBarrier2;
+    pub const cmdClearColorImage = c.vkCmdClearColorImmage;
 };
 
 pub const structs = struct {
@@ -53,14 +65,18 @@ pub const structs = struct {
     pub const Image = c.VkImage;
     pub const ImageView = c.VkImageView;
     pub const ImageViewCI = c.VkImageViewCreateInfo;
+    pub const ImageAspectFlags = c.VkImageAspectFlags;
     pub const CommandPoolCI = c.VkCommandPoolCreateInfo;
     pub const CommandPool = c.VkCommandPool;
     pub const CommandBufferAI = c.VkCommandBufferAllocateInfo;
     pub const CommandBuffer = c.VkCommandBuffer;
+    pub const CommandBufferBI = c.VkCommandBufferBeginInfo;
+    pub const CommandBufferUsageFlags = c.VkCommandBufferUsageFlags;
     pub const Semaphore = c.VkSemaphore;
     pub const SemaphoreCI = c.VkSemaphoreCreateInfo;
     pub const Fence = c.VkFence;
     pub const FenceCI = c.VkFenceCreateInfo;
+    pub const ClearColorValue = c.VkClearColorValue;
 };
 
 pub const constants = struct {
@@ -78,6 +94,9 @@ pub const constants = struct {
     pub const ST_COMMAND_BUFFER_AI = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     pub const ST_FENCE_CI = c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     pub const ST_SEMAPHORE_CI = c.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    pub const ST_COMMAND_BUFFER_BI = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    pub const ST_IMAGE_MEMORY_BARRIER = c.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    pub const ST_DEPENDENCY_INFO = c.VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
 
     // Bool
     pub const TRUE = c.VK_TRUE;
@@ -110,6 +129,12 @@ pub const constants = struct {
 
     // Image Aspect bits
     pub const B_IA_COLOR = c.VK_IMAGE_ASPECT_COLOR_BIT;
+    pub const B_IA_DEPTH = c.VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    // Image Layouts
+    pub const IL_UNDEFINED = c.VK_IMAGE_LAYOUT_UNDEFINED;
+    pub cosnt IL_GENERAL = c.VK_IMAGE_LAYOUT_GENERAL;
+    pub const IL_DEPTH_ATTACHMENT_OPTIMAL = c.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
     // Sharing mode
     pub const SM_CONCURRENT = c.VK_SHARING_MODE_CONCURRENT;
@@ -124,9 +149,21 @@ pub const constants = struct {
     // Command Buffer Level
     pub const CBL_PRIMARY = c.VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
+    // Command Buffer Usage Flags
+    pub const B_CBU_ONE_TIME_SUBMIT = c.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
     // Swizzles
     pub const COMPONENT_SWIZZLE_IDENTITY = c.VK_COMPONENT_SWIZZLE_IDENTITY;
 
     // Image View Types
     pub const IVT_2D = c.VK_IMAGE_VIEW_TYPE_2D;
+
+    // Fence Create Bit
+    pub const B_FC_SIGNALED = c.VK_FENCE_CREATE_SIGNALED_BIT;
+
+    // Pipeline Stage Bit
+    pub const B_PS_ALL_COMMANDS = c.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+    // Access Bit
+    pub const B_A_MEMORY_WRITE = c.VK_ACCESS_MEMORY_WRITE_BIT;
 };

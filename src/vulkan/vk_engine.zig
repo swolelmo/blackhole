@@ -2,6 +2,7 @@ const std = @import("std");
 const e = @import("vk_error.zig");
 const vk = @import("vk_c.zig");
 const vkinit = @import("vk_init.zig");
+const com = @import("vk_common.zig");
 const vkfn = vk.functions;
 const vkcon = vk.constants;
 const vkst = vk.structs;
@@ -18,16 +19,17 @@ var instance: vkst.Instance = null;
 var surface: vkst.Surface = null;
 var p_device: vkst.PDevice = null;
 var device: vkst.Device = null;
-var q_indices: vkinit.DeviceQueueIndices = .{ .graphics = null, .present = null };
+var q_indices: com.DeviceQueueIndices = .{ .graphics = null, .present = null };
 var q_graphics: vkst.Queue = null;
 var q_present: vkst.Queue = null;
-var swapchain: vkinit.SwapchainData = .{
+var swapchain: com.SwapchainData = .{
     .swapchain = null,
     .extent = undefined,
     .images = undefined,
     .image_views = undefined,
     .frames = undefined,
     .num_images = 0,
+    .cur_frame = 0,
 };
 
 pub fn init(a: std.mem.Allocator, enable_val: bool) !void {
@@ -59,6 +61,8 @@ pub fn init(a: std.mem.Allocator, enable_val: bool) !void {
 pub fn run() !void {
     var should_close = false;
     while (!should_close) {
+        std.debug.print("Draw\n", .{});
+        try draw();
         var event: sdl.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&event)) {
             switch (event.type) {
@@ -75,9 +79,32 @@ pub fn run() !void {
     }
 }
 
+pub fn draw() !void {
+    var frame = swapchain.frames[swapchain.cur_frame % 2];
+    var result = vkfn.waitForFences(device, 1, &frame.render_fence, vkcon.TRUE, 1000000);
+    try e.logIfError(result, "Waiting for render fence");
+
+    result = vkfn.resetFences(device, 1, &frame.render_fence);
+    try e.logIfError(result, "Resetting render fence");
+
+    var image_index: u32 = 0;
+    result = vkfn.acquireNextImage(device, swapchain.swapchain, 1000000, frame.swapchain_semaphore, null, &image_index);
+
+    const cmd = frame.command_buffer; 
+    result = vkfn.resetCommandBuffer(cmd, 0);
+    try e.logIfError(result, "Resetting command buffer");
+
+    const cmd_bi = vkinit.genCommandBufferBeginInfo(vkcon.B_CBU_ONE_TIME_SUBMIT);
+    result = vkfn.beginCommandBuffer(cmd, &cmd_bi);
+    try e.logIfError(result, "Beginning command buffer");
+}
+
 pub fn cleanup() void {
     for (0..swapchain.frames.len) |i| {
         vkfn.destroyCommandPool(device, swapchain.frames[i].command_pool, null);
+        vkfn.destroyFence(device,swapchain.frames[i].render_fence, null);
+        vkfn.destroySemaphore(device,swapchain.frames[i].render_semaphore, null);
+        vkfn.destroySemaphore(device,swapchain.frames[i].swapchain_semaphore, null);
     }
 
     if (swapchain.swapchain) |s| {
